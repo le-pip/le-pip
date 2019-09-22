@@ -1,0 +1,175 @@
+version: '3.6'
+
+configs:
+  logstash-syslog-pipeline.conf:
+    file: /tmp/logstash-syslog-pipeline.conf
+
+networks:
+  {{ ES_NETWORK_NAME }}:
+  {{ MANAGEMENT_NETWORK_NAME }}:
+    driver: overlay
+    attachable: true
+services:
+  {{ ES_SERVICE_NAME }}1: &es-service
+    image: "{{ ES_DOCKER_IMAGE }}:{{ ES_DOCKER_IMAGE_TAG }}"
+    networks:
+      - "{{ ES_NETWORK_NAME }}"
+    environment:
+      - node.name={{ ES_SERVICE_NAME }}1
+      - node.master=true
+      - node.data=true
+      - "ES_DATA_NODE_JAVA_OPTS={{ ES_DATA_NODE_JAVA_OPTS }}"
+      - cluster.name={{ ES_CLUSTER_NAME }}
+      - cluster.initial_master_nodes={{ ES_SERVICE_NAME }}1,{{ ES_SERVICE_NAME }}2,{{ ES_SERVICE_NAME }}3
+      - discovery.seed_hosts={{ ES_SERVICE_NAME }}1,{{ ES_SERVICE_NAME }}2,{{ ES_SERVICE_NAME }}3
+      - bootstrap_memory_lock=true
+      - xpack.security.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.watcher.enabled=false
+      - xpack.monitoring.collection.enabled=true
+    volumes:
+      - "{{ ES_VOLUME_PATH }}/{{ ES_CLUSTER_NAME }}/{{ ES_SERVICE_NAME }}1/data:/usr/share/elasticsearch/data"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: curl -s https://localhost:9200 >/dev/null; if [[ $$? == 52 ]]; then echo 0; else echo 1; fi
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy: &deploy
+      endpoint_mode: dnsrr
+      restart_policy:
+        delay: 2m
+        max_attempts: 3
+        window: 120s
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.elasticsearch==true
+ 
+          
+  {{ ES_SERVICE_NAME }}2:
+    <<: *es-service
+    environment:
+      - node.name={{ ES_SERVICE_NAME }}2
+      - node.master=true
+      - node.data=true
+      - "ES_DATA_NODE_JAVA_OPTS={{ ES_DATA_NODE_JAVA_OPTS }}"
+      - cluster.name={{ ES_CLUSTER_NAME }}
+      - cluster.initial_master_nodes={{ ES_SERVICE_NAME }}1,{{ ES_SERVICE_NAME }}2,{{ ES_SERVICE_NAME }}3
+      - discovery.seed_hosts={{ ES_SERVICE_NAME }}1,{{ ES_SERVICE_NAME }}2,{{ ES_SERVICE_NAME }}3
+      - bootstrap_memory_lock=true
+      - xpack.security.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.watcher.enabled=false
+      - xpack.monitoring.collection.enabled=true
+    volumes:
+    - "{{ ES_VOLUME_PATH }}/{{ ES_CLUSTER_NAME }}/{{ ES_SERVICE_NAME }}2/data:/usr/share/elasticsearch/data"
+
+  {{ ES_SERVICE_NAME }}3:
+    <<: *es-service
+    environment:
+      - node.name={{ ES_SERVICE_NAME }}3
+      - node.master=true
+      - node.data=true
+      - "ES_DATA_NODE_JAVA_OPTS={{ ES_DATA_NODE_JAVA_OPTS }}"
+      - cluster.name={{ ES_CLUSTER_NAME }}
+      - cluster.initial_master_nodes={{ ES_SERVICE_NAME }}1,{{ ES_SERVICE_NAME }}2,{{ ES_SERVICE_NAME }}3
+      - discovery.seed_hosts={{ ES_SERVICE_NAME }}1,{{ ES_SERVICE_NAME }}2,{{ ES_SERVICE_NAME }}3
+      - bootstrap_memory_lock=true
+      - xpack.security.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.watcher.enabled=false
+      - xpack.monitoring.collection.enabled=true
+    volumes:
+      - "{{ ES_VOLUME_PATH }}/{{ ES_CLUSTER_NAME }}/{{ ES_SERVICE_NAME }}3/data:/usr/share/elasticsearch/data"
+
+  {{ ES_SERVICE_NAME }}4:
+    <<: *es-service
+    networks:
+      - {{ ES_NETWORK_NAME }}
+    volumes:
+      - "{{ ES_VOLUME_PATH }}/{{ ES_CLUSTER_NAME }}/{{ ES_SERVICE_NAME }}4/data:/usr/share/elasticsearch/data"
+    environment:
+      - node.name={{ ES_SERVICE_NAME }}4
+      - node.master=false
+      - node.data=false
+      - "ES_DATA_NODE_JAVA_OPTS={{ ES_NO_DATA_NODE_JAVA_OPTS }}"
+      - cluster.name={{ ES_CLUSTER_NAME }}
+      - cluster.initial_master_nodes={{ ES_SERVICE_NAME }}1,{{ ES_SERVICE_NAME }}2,{{ ES_SERVICE_NAME }}3
+      - discovery.seed_hosts={{ ES_SERVICE_NAME }}1,{{ ES_SERVICE_NAME }}2,{{ ES_SERVICE_NAME }}3
+      - bootstrap_memory_lock=true
+      - xpack.security.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.watcher.enabled=false
+      - xpack.monitoring.collection.enabled=true
+    deploy:
+      endpoint_mode: dnsrr
+      restart_policy:
+        condition: on-failure
+        delay: 2m
+        max_attempts: 5
+        window: 120s
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.elasticsearch==true
+          - node.labels.gateway==true
+  
+  kibana:
+    image: "{{ KIBANA_DOCKER_IMAGE }}:{{ ES_DOCKER_IMAGE_TAG }}"
+    networks:
+      - {{ ES_NETWORK_NAME }}
+      - {{ MANAGEMENT_NETWORK_NAME }}
+    environment:
+      - "ELASTICSEARCH_HOSTS=http://{{ ES_SERVICE_NAME }}4:9200"
+      - XPACK_SECURITY_ENABLED=false
+      - XPACK_REPORTING_ENABLED=true
+    depends_on:
+      - "{{ ES_SERVICE_NAME }}4"
+    healthcheck:
+      test: curl -s https://localhost:5601 >/dev/null; if [[ $$? == 52 ]]; then echo 0; else echo 1; fi
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints:
+          - node.labels.gateway==true
+
+  logstash:
+    image: "{{ LOGSTASH_DOCKER_IMAGE }}:{{ ES_DOCKER_IMAGE_TAG }}"
+    volumes:
+      - /var/log:/host/var/log:ro
+    networks:
+      - {{ ES_NETWORK_NAME }}
+    ports:
+      # - '1514:1514'
+      - "{{ LOGSTASH_SYSLOG_INPUT_PORT }}:{{ LOGSTASH_SYSLOG_INPUT_PORT }}/udp"
+    environment:
+      - XPACK_MONITORING_ENABLED=true
+      - "XPACK.MONITORING.ELASTICSEARCH.HOSTS=http://{{ ES_SERVICE_NAME }}4:9200"
+    configs:
+      - source: logstash-syslog-pipeline.conf
+        target: /usr/share/logstash/pipeline/logstash-syslog-pipeline.conf
+    depends_on:
+      - "{{ ES_SERVICE_NAME }}4"
+    healthcheck:
+        test: bin/logstash -t
+        interval: 60s
+        timeout: 50s
+        retries: 5
+    deploy:
+      mode: global
+      restart_policy:
+        condition: any
+        max_attempts: 20
+        window: 30s

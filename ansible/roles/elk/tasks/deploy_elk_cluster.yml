@@ -1,0 +1,15 @@
+- name: Fill ES docker-compose template
+  template:
+    src: "templates/elasticsearch-{{ deployment }}-cluster.yml.j2"
+    dest: "/tmp/elasticsearch-{{ deployment }}-cluster.yml"
+
+
+- name: Fill Logstash pipeline template
+  template:
+    src: "templates/logstash-syslog-pipeline.conf.j2"
+    dest: "/tmp/logstash-syslog-pipeline.conf"
+  
+- name: Deploy ES stack
+  command: "docker stack deploy --compose-file /tmp/elasticsearch-{{ deployment }}-cluster.yml es-{{ deployment }}-stack"
+
+
