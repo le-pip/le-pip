@@ -1,0 +1,20 @@
+input {
+  syslog  { 
+     port => {{ LOGSTASH_SYSLOG_INPUT_PORT }}
+  }
+}
+
+filter {
+  grok {
+    match => { "message" => "<%{POSINT:priority}>%{SYSLOGLINE}" }
+  }
+}
+
+output {
+  elasticsearch{
+    hosts => ["http://{{ ES_SERVICE_NAME }}4:9200"]
+    index => "syslog_%{+yyyy.MM.dd}"
+    }
+
+  stdout { codec => rubydebug } 
+}
