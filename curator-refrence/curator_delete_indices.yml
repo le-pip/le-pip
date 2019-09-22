@@ -1,0 +1,50 @@
+---
+#   $ vim /etc/crontab
+#   #run every day at 5AM
+#   0  5  *  *  * root curator /etc/elasticsearch/delete_indices.yml
+#
+actions:
+  1:
+    action: delete_indices
+    description: >-
+      Delete syslog weekly indices older than 1 weeks (based on index name)
+    options:
+      ignore_empty_list: True
+      timeout_override:
+      continue_if_exception: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: syslog
+    - filtertype: pattern
+      kind: timestring
+      value: '%Y.%m.%d'
+      exclude: True
+    - filtertype: age
+      source: name
+      direction: older
+      timestring: '%Y.%W'
+      unit: weeks
+      unit_count: 1
+      
+  2:
+    action: delete_indices
+    description: >-
+      Delete syslog indices older than 7 days (based on index name)
+    options:
+      ignore_empty_list: True
+      timeout_override:
+      continue_if_exception: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: syslog
+    - filtertype: age
+      source: name
+      direction: older
+      timestring: '%Y.%m.%d'
+      unit: days
+      unit_count: 7
+      
