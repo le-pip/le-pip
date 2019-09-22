@@ -8,8 +8,40 @@
   template:
     src: "templates/logstash-syslog-pipeline.conf.j2"
     dest: "/tmp/logstash-syslog-pipeline.conf"
+
+- name: Fill Nginix config template
+  template:
+    src: "templates/nginx.conf.j2"
+    dest: "/tmp/nginx.conf"
+
+
+- name: Instal pip requierments for htpasswd
+  pip:
+    name:  passlib>1.6
+
+- name: Create htpasswd for Nginx
+  htpasswd:
+    path: /tmp/nginx-htpasswd.users  
+    name: "{{ NGINX_USER }}"
+    password: "{{ NGINX_PASSWORD }}"
+    owner: root
+    mode: 0400
   
 - name: Deploy ES stack
   command: "docker stack deploy --compose-file /tmp/elasticsearch-{{ deployment }}-cluster.yml es-{{ deployment }}-stack"
 
 
+- name: Wait for Kibana to start
+  command: "curl -s --anyauth --user {{ NGINX_USER }}:{{ NGINX_PASSWORD }} http://{{ groups['managers'][0] }}:{{ KIBANA_PROXY_PORT }}/api/status"
+  register: kibana_status
+  until: kibana_status.stdout.find("{\"overall\":{\"state\":\"green") != -1
+  retries: 240
+  delay: 1
+  changed_when: false
+
+
+
+- name: Add index pattern to Kibana
+  shell: "curl -X POST --anyauth --user {{ NGINX_USER }}:{{ NGINX_PASSWORD }} http://{{ groups['managers'][0] }}:{{ KIBANA_PROXY_PORT }}/api/saved_objects/index-pattern/syslog-pattern -H 'kbn-xsrf: true' -H 'Content-Type: application/json' -d'{{ lookup('file', 'files/kibana_default_index_body.json') }}'"
+  register: kibana_pattern
+  failed_when: kibana_pattern.stdout.find("syslog-pattern") == -1

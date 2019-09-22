@@ -1,8 +1,14 @@
 version: '3.6'
 
+secrets:
+  nginx-htpasswd.users:
+    file: /tmp/nginx-htpasswd.users
+
 configs:
   logstash-syslog-pipeline.conf:
     file: /tmp/logstash-syslog-pipeline.conf
+  nginx.conf:
+    file: /tmp/nginx.conf
 
 networks:
   {{ ES_NETWORK_NAME }}:
@@ -173,3 +179,20 @@ services:
         condition: any
         max_attempts: 20
         window: 30s
+
+  nxinx:
+    image: "nginx:{{ NGINX_DOCKER_IMAGE_TAG }}"
+    networks: 
+      - {{ MANAGEMENT_NETWORK_NAME }}
+    ports:
+      - "{{ KIBANA_PROXY_PORT }}:{{ KIBANA_PROXY_PORT }}"
+      - "{{ CEREBRO_PROXY_PORT }}:{{ CEREBRO_PROXY_PORT }}"
+    configs: 
+      - source: nginx.conf
+        target: /etc/nginx/nginx.conf
+    secrets:
+      - source: nginx-htpasswd.users
+        target: /run/secrets/nginx-htpasswd.users
+    depends_on:
+      - "kibana"
+

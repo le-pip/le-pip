@@ -7,3 +7,7 @@
   include: elastic_prerequisites.yml
   tags:
     - always
+
+- name: Spin ES cluster
+  include: deploy_elk_cluster.yml
+  when: "inventory_hostname == groups['managers'][0]"
