@@ -1,0 +1,3 @@
+- include: configure_docker_daemon.yml
+  tags:
+    - install

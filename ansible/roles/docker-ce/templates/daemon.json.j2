@@ -1,0 +1,14 @@
+{
+  "ipv6": false,
+  "storage-driver": "overlay2",
+  "max-concurrent-downloads": 20,
+  "max-concurrent-uploads": 10,
+
+  "log-driver": "syslog",
+  "log-opts":{
+      {% raw %} "tag":"{{.ImageName}}/{{.Name}}/{{.ID}}"{% endraw %},
+      "syslog-address": "udp://127.0.0.1:{{ LOGSTASH_SYSLOG_INPUT_PORT }}"
+  },
+
+  "no-new-privileges": true
+}
