@@ -1,0 +1,8 @@
+- name: Deploy Elasticserach cluster above Docke Swarm cluster
+  hosts: managers, workers
+  become: yes
+  become_user: root
+  roles:
+    - {role: docker-ce}
+    - {role: docker-swarm}
+    - {role: elk,  deployment: 3dm1i}
