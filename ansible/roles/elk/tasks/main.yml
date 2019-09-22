@@ -1,0 +1,9 @@
+- name: Load variables per targer deployment type
+  include_vars: "elasticsearch-{{ deployment }}-cluster.yml"
+  tags:
+     - always
+
+- name: Ensure ES Docker requierments are met
+  include: elastic_prerequisites.yml
+  tags:
+    - always
