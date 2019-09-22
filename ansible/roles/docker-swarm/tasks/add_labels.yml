@@ -1,0 +1,10 @@
+- name: Add labels to Gateway node
+  shell:  "docker node inspect -f {%raw%}'{{.ID}}'{%endraw%}  self | xargs docker node update --label-add gateway=true "
+  # loop: "{{ groups['managers'] }}"
+  when: "labels is defined and inventory_hostname == groups['managers'][0]"
+
+- name: Add labels to Manager nodes
+  shell:  "docker node inspect -f {%raw%}'{{.ID}}'{%endraw%} self | xargs docker node update --label-add {{ labels }}"
+  # loop: "{{ groups['managers'] }}"
+  when: labels is defined
+

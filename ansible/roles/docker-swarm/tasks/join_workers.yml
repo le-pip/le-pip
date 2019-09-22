@@ -1,0 +1,11 @@
+- name: Get token to join as worker
+  set_fact: 
+    docker_worker_token: "{{ hostvars[ groups['managers'][0] ]['docker_worker_token'] }}"
+    docker_manager_address: "{{ groups['managers'][0] }}:{{ DOCKER_SWARM_PORT }}"
+  tags:
+    - join_swarm_workers
+
+- name: Join Swarm as worker node
+  shell:  docker swarm join --token "{{ docker_worker_token.stdout }}" {{ docker_manager_address }}
+  tags:
+    - join_swarm_workers

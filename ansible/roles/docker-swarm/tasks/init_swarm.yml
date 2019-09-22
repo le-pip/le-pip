@@ -1,0 +1,16 @@
+- name: Init Swarm
+  shell: docker swarm init
+  tags:
+    - init_swarm
+
+- name: Get the worker join-token
+  shell: docker swarm join-token -q worker
+  register: docker_worker_token
+  tags:
+    - get_swarm_token
+
+- name: Get the manager join-token
+  shell: docker swarm join-token -q manager
+  register: docker_manager_token
+  tags:
+    - get_swarm_token  

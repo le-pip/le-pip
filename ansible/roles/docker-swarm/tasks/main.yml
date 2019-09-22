@@ -1,0 +1,23 @@
+- name: Init Swarm
+  include: init_swarm.yml
+  when: "inventory_hostname == groups['managers'][0]"
+  tags:
+    - init_swarm
+
+- name: Add eligible managers
+  include: join_managers.yml
+  when: "'managers' in group_names and inventory_hostname != groups['managers'][0]"
+  tags:
+    - join_swarm
+
+- name: Add workers
+  include: join_workers.yml
+  when: "'workers' in group_names"
+  tags:
+    - join_swarm
+
+- name: Add labeles to nodes
+  include: add_labels.yml
+  when: "'managers' in group_names"
+  tags:
+    - join_swarm

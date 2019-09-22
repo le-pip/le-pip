@@ -1,0 +1,11 @@
+- name: Get token to join as manager
+  set_fact: 
+    docker_manager_token: "{{ hostvars[ groups['managers'][0] ]['docker_manager_token'] }}"
+    docker_manager_address: "{{ groups['managers'][0] }}:{{ DOCKER_SWARM_PORT }}"
+  tags:
+    - join_swarm_managers
+
+- name: Join Swarm as manager node
+  shell:  docker swarm join --token "{{ docker_manager_token.stdout }}" {{ docker_manager_address }}
+  tags:
+    - join_swarm_managers
