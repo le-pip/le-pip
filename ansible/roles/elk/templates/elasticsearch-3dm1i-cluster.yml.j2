@@ -7,14 +7,20 @@ secrets:
 configs:
   logstash-syslog-pipeline.conf:
     file: /tmp/logstash-syslog-pipeline.conf
+  cerebro-applicaiton.conf:
+    file: /tmp/cerebro-applicaiton.conf
   nginx.conf:
     file: /tmp/nginx.conf
+
+volumes:
+  cerebro-data:
 
 networks:
   {{ ES_NETWORK_NAME }}:
   {{ MANAGEMENT_NETWORK_NAME }}:
     driver: overlay
     attachable: true
+  
 services:
   {{ ES_SERVICE_NAME }}1: &es-service
     image: "{{ ES_DOCKER_IMAGE }}:{{ ES_DOCKER_IMAGE_TAG }}"
@@ -179,6 +185,29 @@ services:
         condition: any
         max_attempts: 20
         window: 30s
+    
+  cerebro:
+    image: {{ CEREBRO_DOCKER_IMAGE }}:{{ CEREBRO_DOCKER_IMAGE_TAG }}
+    networks:
+      - {{ ES_NETWORK_NAME }}
+      - {{ MANAGEMENT_NETWORK_NAME }}
+    depends_on:
+      - "{{ ES_SERVICE_NAME }}4"
+    volumes:
+      - cerebro-data:/var/lib/cerebro
+    configs:
+      - source: cerebro-applicaiton.conf
+        target: /opt/cerebro/conf/application.conf
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+        max_attempts: 3
+        window: 120s
+      placement:
+        constraints:
+          - node.labels.gateway==true
 
   nxinx:
     image: "nginx:{{ NGINX_DOCKER_IMAGE_TAG }}"
@@ -195,4 +224,5 @@ services:
         target: /run/secrets/nginx-htpasswd.users
     depends_on:
       - "kibana"
+      - "cerebro"
 
